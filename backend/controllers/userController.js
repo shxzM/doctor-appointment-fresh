@@ -172,4 +172,54 @@ const bookAppointment = async (req, res) =>{
     }
 }
 
-export { registerUser, loginUser, getProfile, updateProfile, bookAppointment }
+//API to get all appointments of a user
+const listAppointment = async (req, res) => {
+    try {
+        
+        const {userId} = req.body
+        const appointments = await appointmentModel.find({userId})
+        
+        res.json({ success: true, appointments });
+
+    } catch (error) {
+        console.error(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+
+//API to cancel appointment
+const cancelAppointment = async (req, res) => {
+    try {
+        const {userId, appointmentId} = req.body
+
+        const appointmentData = await appointmentModel.findById(appointmentId)
+
+        //Verify if the appointment belongs to the user
+        if(appointmentData.userId !== userId) {
+            return res.json({ success: false, message: "You cannot cancel this appointment" });
+        }
+
+        //Remove the appointment from the database
+        await appointmentModel.findByIdAndUpdate(appointmentId, {cancelled: true});
+
+        //Releasing slot of the doctor
+        const {docId, slotDate, slotTime} = appointmentData
+        const doctorData = await doctorModel.findById(docId)
+
+        let slots_booked = doctorData.slots_booked
+
+        slots_booked[slotDate] = slots_booked[slotDate].filter(slot => slot !== slotTime);
+
+        await doctorModel.findByIdAndUpdate(docId, {slots_booked});
+
+        res.json({ success: true, message: "Appointment cancelled" });
+
+    } catch (error) {
+        console.error(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+    
+
+export { registerUser, loginUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment }
